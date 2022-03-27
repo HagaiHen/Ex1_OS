@@ -1,3 +1,5 @@
+//this class is from here: https://aticleworld.com/socket-programming-in-c-using-tcpip/
+
 #include<stdio.h>
 #include<string.h>
 #include<sys/socket.h>
@@ -68,7 +70,7 @@ int main(int argc, char *argv[]) {
         //printf("%s\n", client_message);
         char str[100];
         char cwd[100];
-        char echo[4] = "echo";
+        char echo[4] = "ECHO";
         int b;
         while (1) {
             b = 1;
@@ -82,20 +84,22 @@ int main(int argc, char *argv[]) {
                     printf("%c", client_message[i]);
                 }
                 printf("\n");
-                strcpy(client_message, "");
             }
             if (!strcmp(client_message, "LOCAL")) {
                 close(sock);
                 break;
             }
-            if (!strcmp(client_message, "exit")) {
+            if (!strcmp(client_message, "EXIT")) {
                 exit(0);
             }
-            if( send(sock, message, strlen(message), 0) < 0)
-            {
-                printf("Send failed");
-                return 1;
+            memset(client_message, '\0', sizeof client_message);
+            memset(message, '\0', sizeof message);
+            //Receive a reply from the client
+            if (recv(sock, client_message, 200, 0) < 0) {
+                printf("recv failed");
+                break;
             }
+
         }
         return 0;
     }
