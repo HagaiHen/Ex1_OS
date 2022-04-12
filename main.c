@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -12,57 +13,56 @@
 
 #define SERVER_PORT 5060
 #define SERVER_IP_ADDRESS "127.0.0.1"
+#define MAX_WORDS_IN_COMMAND 100
+#define MAX_CHARS_IN_COMMAND 1000
 
 
 int client();
 
+void splitCommand(char *str, char** splittedWord) {
+    for (int i=0; i<MAX_WORDS_IN_COMMAND; i++) {
+        splittedWord[i] = strsep(&str, " ");
+
+        if (splittedWord[i] == NULL) {
+            break;
+        }
+    }
+}
+
 int main() {
-    char str[100];
+    char str[MAX_CHARS_IN_COMMAND];
     char cwd[100];
-    char echo[4] = "ECHO";
-    char cd[2] = "CD";
-    int b1, b2;
+    char* splittedWord[MAX_WORDS_IN_COMMAND];
     while (1) {
-        b1 = 1;
-        b2 = 1;
         if (getcwd(cwd, sizeof(cwd)) != NULL) {
             printf("%s", cwd);
         }
         printf("/ yes master?\n");
-        gets(str);
-        for (int i = 0; i < 4; i++) {
-            if (str[i] != echo[i]) {
-                b1 = 0;
-            }
+        scanf("%s" , str);
+        splitCommand(str,splittedWord);
+        if(strcmp(splittedWord[0], "ECHO") == 0){
+            printf("%s \n" , splittedWord[1]);
+            continue;
         }
-        for (int i = 0; i < 2; i++) {
-            if (str[i] != cd[i]) {
-                b2 = 0;
-            }
+
+        else if(strcmp(splittedWord[0], "DELETE") == 0){    // a system call
+            unlink(splittedWord[1]);
+            continue;
         }
-        if (b1) {
-            for (int i = 5; i < strlen(str); i++) {
-                printf("%c", str[i]);
-            }
-            printf("\n");
+
+        else if(strcmp(splittedWord[0], "CD") == 0){
+            chdir(splittedWord[1]);
+            continue;
         }
-        if (b2) {
-            char s[100];
-            for (int i = 3; i < strlen(str); i++) {
-                str[i-3] = str[i];
-            }
-            for (int i = strlen(str)-3; i < strlen(str); i++) {
-                str[i] = '\0';
-            }
-            chdir(str); //chdir is a system call.
-        }
-            if (!strcmp(str, "TCP PORT")) {
+        
+        else if(strcmp(splittedWord[0], "TCP") == 0){
                 client();
-            }
-        if (!strcmp(str, "EXIT")) {
+                continue;
+        }
+        else if (!strcmp(str, "EXIT")) {
             exit(0);
         }
-        if (!strcmp(str, "DIR")) {
+        else if (!strcmp(str, "DIR")) {
             DIR *d;
             struct dirent *dir;
             d = opendir(".");
@@ -70,14 +70,55 @@ int main() {
                 while ((dir = readdir(d)) != NULL) {
                     printf("%s\n", dir->d_name);
                 }
-                closedir(d);
+                closedir(d);continue;
             }
         }
-        if (!strcmp(str, "CD")) {
+        
+        else if(strcmp(splittedWord[0], "COPY") == 0){
+            char ch;
+            FILE *src, *dst;
+            src = fopen(splittedWord[1], "r");
+            if(src == NULL){
+                perror("Could not open the file");
+                return -1;
+            }
 
+            dst = fopen(splittedWord[1], "w+");
+            if(dst == NULL){
+                fclose(src);
+                perror("Could not open the file");
+                return -1;
+            }
+            
+            while((ch = fgetc(src)) != EOF )
+                fputc(ch, dst);
+    
+            printf("File copied successfully.\n");
+            
+            fclose(src);
+            fclose(dst);
+            continue;
         }
-    }
-    return 0;
+        // else{
+        //     system(str);    // is a library call from <stdlib. h>
+        // }
+        else{
+            pid_t pid = fork(); 
+            if (pid == -1) {   //COULDN'T CREAT CHILD
+                printf("\nFailed forking child..");
+                continue;
+            } 
+            else if (pid == 0) {   // CHILD EXECUTE
+                if (execvp(splittedWord[0], splittedWord) < 0) {
+                    printf("\nCould not execute command..");
+                }
+                exit(0);
+            } else {          // FATHER EXECUTE
+                // waiting for child to terminate
+                wait(NULL); 
+            }
+        }
+    }return 0;
 }
 
 //Create a Socket for server communication

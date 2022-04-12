@@ -1,4 +1,3 @@
-//this class is from here: https://aticleworld.com/socket-programming-in-c-using-tcpip/
 
 #include<stdio.h>
 #include<string.h>
